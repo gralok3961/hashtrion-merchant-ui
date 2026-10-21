@@ -1,0 +1,50 @@
+variables:
+  title: hashtrion-merchant-ui
+  nodeVersion: '20.x'
+
+name: $(Build.Repository.Name)_$(Build.DefinitionName)_$(Build.SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- checkout: self
+  clean: true
+
+- task: NodeTool@0
+  inputs:
+    versionSpec: '$(nodeVersion)'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm ci
+  displayName: 'Install Dependencies'
+
+- script: |
+    npm run build
+  displayName: 'Build Next.js App'
+
+- script: |
+    mkdir -p .next/standalone/.next
+    cp -R .next/static .next/standalone/.next/static
+
+    if [ -d "public" ]; then
+      cp -R public .next/standalone/public
+    fi
+  displayName: 'Prepare Standalone Package'
+
+- task: ArchiveFiles@2
+  inputs:
+    rootFolderOrFile: '$(Build.SourcesDirectory)/.next/standalone'
+    includeRootFolder: false
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/drop.zip'
+    replaceExistingArchive: true
+  displayName: 'Archive Deployment Package'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/drop.zip'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
+  displayName: 'Publish Artifact'
